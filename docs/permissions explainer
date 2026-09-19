@@ -1,0 +1,51 @@
+# Permissões no Linux: chmod 700 e 600
+
+O `chmod` (*change mode*) muda quem pode **ler**, **escrever** e **executar** um arquivo ou pasta.
+
+## Como ler o número
+
+São três dígitos, um para cada tipo de usuário, nesta ordem: **dono**, **grupo** e **outros**. Cada dígito é a soma das permissões:
+
+| Letra | Permissão | Valor |
+|---|---|---|
+| `r` | Ler | 4 |
+| `w` | Escrever ou alterar | 2 |
+| `x` | Executar (em pasta: entrar nela) | 1 |
+
+Exemplos: **7** = 4+2+1 = `rwx`, **6** = 4+2 = `rw-`, **0** = `---`.
+
+## Os dois valores usados no SSH
+
+| Comando | Significa | Texto equivalente |
+|---|---|---|
+| `chmod 700 ~/.ssh` | Dono com tudo, grupo e outros sem nada | `rwx------` |
+| `chmod 600 ~/.ssh/authorized_keys` | Dono lê e escreve, ninguém mais acessa | `rw-------` |
+
+Na pasta, o `x` é necessário para conseguir entrar nela. No arquivo comum, ele não é preciso, porque o arquivo não é um programa.
+
+## Por que o SSH exige isso
+
+Se outros usuários do servidor puderem ler ou alterar `~/.ssh` ou `authorized_keys`, algum deles poderia colocar uma chave própria ali e entrar como eu. Por isso o servidor **ignora as chaves** quando as permissões estão abertas demais. É a causa clássica de "coloquei a chave e ela não funciona".
+
+## Como conferir
+
+```bash
+ls -ld ~/.ssh
+ls -l ~/.ssh/authorized_keys
+```
+
+Resultado esperado (o dono e as datas variam):
+
+```
+drwx------ 2 SEU_USUARIO SEU_USUARIO 4096 ... /home/SEU_USUARIO/.ssh
+-rw------- 1 SEU_USUARIO SEU_USUARIO  ... ... /home/SEU_USUARIO/.ssh/authorized_keys
+```
+
+O primeiro caractere indica o tipo (`d` é diretório, `-` é arquivo). Os nove seguintes são dono, grupo e outros, três a três.
+
+## Corrigir
+
+```bash
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+```
