@@ -1,0 +1,76 @@
+# Diário de problemas
+
+Cada entrada segue o formato **sintoma, causa, solução e aprendizado**. Dados sensíveis foram trocados por `SEU_IP`, `SEU_USUARIO` e `SEU_USER`.
+
+---
+
+## 1. `Host key verification failed` na primeira conexão
+
+- **Sintoma:** ao rodar `ssh SEU_USUARIO@SEU_IP`, apareceu a pergunta sobre a fingerprint e a conexão terminou em `Host key verification failed`.
+- **Causa:** a pergunta `Are you sure you want to continue connecting` não foi respondida com `yes`. Digitar só `y` não basta, ele pede a palavra completa.
+- **Solução:** rodar o comando de novo e responder `yes`. O servidor entra na lista de hosts conhecidos e a pergunta não volta naquele computador.
+- **Aprendizado:** cada computador tem a sua própria lista de hosts conhecidos, então a pergunta aparece uma vez em cada um.
+
+## 2. Não consigo digitar a senha
+
+- **Sintoma:** ao aparecer `SEU_USUARIO@SEU_IP's password:`, nada aparecia na tela e parecia que o terminal estava travado.
+- **Causa:** o SSH não mostra nada enquanto a senha é digitada, nem asteriscos. É o comportamento normal.
+- **Solução:** clicar dentro da janela do PowerShell, digitar (ou colar com o botão direito) e apertar Enter.
+- **Aprendizado:** colar evita erro de teclado, principalmente em caracteres como `@` que mudam de posição conforme o layout.
+
+## 3. `passwd: Authentication token manipulation error`
+
+- **Sintoma:** ao rodar `passwd` dentro do servidor, ele pediu a senha atual e falhou com essa mensagem, com `password unchanged`.
+- **Causa:** a senha atual não foi aceita, provavelmente por erro de digitação na entrada invisível. A mensagem é genérica do PAM (o sistema de autenticação do Linux) e aparece em vários cenários.
+- **Solução:** rodar `passwd` de novo colando a senha atual. Na segunda tentativa apareceu `password updated successfully`.
+- **Aprendizado:** uma mensagem de erro genérica precisa de hipóteses, e a mais simples (entrada errada) deve ser testada primeiro.
+
+## 4. `Não é possível localizar o caminho ... id_ed25519.pub`
+
+- **Sintoma:** `type $env:USERPROFILE\.ssh\id_ed25519.pub` retornou que o caminho não existe.
+- **Causa:** a chave ainda não tinha sido gerada. O comando estava certo, faltava criar o arquivo.
+- **Solução:** rodar `ssh-keygen -t ed25519 -C "..."` e depois repetir o `type`.
+- **Aprendizado:** ler a mensagem inteira antes de assumir erro de sintaxe. Aqui o erro era de pré-requisito.
+
+## 5. Confundir o nome da variável com o seu valor
+
+- **Sintoma:** tentativa de escrever `type $env:SEU_USER \.ssh\...`, trocando `USERPROFILE` pelo nome de usuário.
+- **Causa:** `USERPROFILE` é o **nome** da variável de ambiente do Windows, e não um texto a ser substituído. O PowerShell troca por `C:\Users\SEU_USER` sozinho.
+- **Solução:** usar `$env:USERPROFILE\.ssh\id_ed25519.pub` exatamente assim, sem espaço antes de `\.ssh`. Alternativa: o caminho completo `C:\Users\SEU_USER\.ssh\id_ed25519.pub`.
+- **Aprendizado:** `$env:USERPROFILE` no PowerShell equivale a `$HOME` no Linux.
+
+## 6. Gerar a chave dentro do servidor, por engano
+
+- **Sintoma:** ao rodar `ssh-keygen`, o caminho oferecido era `/home/SEU_USUARIO/.ssh/id_ed25519`, com estilo Linux.
+- **Causa:** eu ainda estava com a sessão SSH aberta. O prompt era `SEU_USUARIO@servidor:~$` em vez de `PS C:\Users\SEU_USER>`.
+- **Solução:** cancelar com `Ctrl + C`, sair com `exit` e rodar o comando no PowerShell do meu computador.
+- **Aprendizado:** ler o prompt antes de rodar qualquer comando. A chave é gerada na máquina de onde vou me conectar.
+
+## 7. `No such file or directory` ao gravar no `authorized_keys`
+
+- **Sintoma:** o envio da chave falhou com `bash: line 1: /home/SEU_USUARIO/.ssh/authorized_keys: No such file or directory`.
+- **Causa:** a pasta `~/.ssh` ainda não existia no usuário do servidor, então não havia onde criar o arquivo.
+- **Solução:** criar a pasta e ajustar as permissões no mesmo comando: `mkdir -p ~/.ssh && chmod 700 ~/.ssh && tr -d '\r' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys` (versão completa em [ssh-chaves.md](ssh-chaves.md)).
+- **Aprendizado:** não assumir que a pasta existe. Também aprendi por que `700` e `600` são exigidos (ver [permissoes-chmod.md](permissoes-chmod.md)).
+
+## 8. `Permission denied (publickey,password)` no segundo computador
+
+- **Sintoma:** no notebook, o login falhou nas três tentativas de senha.
+- **Causa:** a chave autorizada era a do desktop, e o notebook não tinha chave, então caiu na senha. A mensagem `(publickey,password)` lista os métodos que o servidor aceita, e a falha foi na credencial informada, não na configuração.
+- **Solução:** em nova tentativa, a conexão funcionou com a senha antiga. Em seguida, gerei uma chave própria para o notebook e a autorizei (entrada 7).
+- **Aprendizado:** a mensagem mostra quais métodos o servidor oferece, o que ajuda a separar "não entra" de um diagnóstico de verdade. Também evitar muitas tentativas seguidas, porque um servidor com `fail2ban` pode bloquear o IP.
+
+## 9. Senha alterada, mas a antiga continuou funcionando
+
+- **Status:** **em aberto.**
+- **Sintoma:** no desktop, `passwd` mostrou `password updated successfully`. Depois, no notebook, a senha antiga ainda foi aceita.
+- **Hipóteses (não confirmadas):** repeti a mesma senha como nova; ou o administrador redefiniu a senha ao autorizar a chave.
+- **Como verificar:** rodar `passwd` de novo com uma senha claramente diferente, sair e testar um novo login. A antiga deve ser recusada.
+- **Aprendizado:** validar se uma mudança realmente valeu, em vez de confiar só na mensagem de sucesso.
+
+## 10. Notas do Obsidian dentro do OneDrive
+
+- **Sintoma:** ao criar um cofre no Obsidian, o caminho sugerido ficou dentro de `OneDrive\Documentos`.
+- **Causa:** no Windows, a pasta Documentos pode ser redirecionada para o OneDrive, e o Obsidian usa esse local por padrão.
+- **Solução:** criar a pasta antes, pelo Explorador de Arquivos, fora do OneDrive, e usar **Abrir pasta como um cofre**. Conferir em **Gerenciar cofres** se o caminho não contém `OneDrive`.
+- **Aprendizado:** saber onde os dados realmente ficam (local ou nuvem) e escolher isso de propósito, principalmente com informação sensível.
