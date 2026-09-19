@@ -1,0 +1,62 @@
+# Checklist: desativar o login por senha sem se trancar para fora
+
+Princípio: **ativar o método novo, validar, e só então remover o antigo.**
+
+Neste estudo, o servidor é de outra pessoa, então quem edita a configuração é o administrador. Este documento registra a sequência e o que eu pedi a ele.
+
+## Sequência
+
+1. **Autorizar as chaves de todos os dispositivos** no `authorized_keys` (ver [ssh-chaves.md](ssh-chaves.md)).
+2. **Testar cada dispositivo** com `ssh SEU_USUARIO@SEU_IP`. Todos precisam entrar **sem pedir senha**.
+3. **Só depois**, o administrador desativa o login por senha.
+4. **Testar de novo** todos os dispositivos.
+5. **Confirmar que a senha foi recusada**, tentando entrar com ela.
+
+Se o passo 3 for feito antes do 2, qualquer dispositivo sem chave autorizada perde o acesso e depende do administrador para voltar.
+
+## O que o administrador faz
+
+Com uma sessão SSH já aberta (para não se trancar), no servidor:
+
+```bash
+sudo nano /etc/ssh/sshd_config
+```
+
+```
+PasswordAuthentication no
+```
+
+Validar a sintaxe antes de aplicar e recarregar o serviço:
+
+```bash
+sudo sshd -t
+sudo systemctl reload ssh
+```
+
+**Sem fechar a sessão atual**, abrir outra janela e testar uma nova conexão. Se falhar, a sessão aberta permite desfazer.
+
+## Pegadinha: arquivos em `sshd_config.d`
+
+Em muitos VPS com Ubuntu, existem arquivos em `/etc/ssh/sshd_config.d/` que também definem `PasswordAuthentication` e podem prevalecer sobre o `sshd_config` principal. Para ver o valor **efetivo**:
+
+```bash
+sudo sshd -T | grep -i passwordauthentication
+```
+
+O resultado deve ser `passwordauthentication no`. Se continuar `yes`, procurar qual arquivo está definindo:
+
+```bash
+grep -ri passwordauthentication /etc/ssh/sshd_config /etc/ssh/sshd_config.d/
+```
+
+## Validação final
+
+- [ ] Desktop entra sem senha
+- [ ] Notebook entra sem senha
+- [ ] `sshd -T` mostra `passwordauthentication no`
+- [ ] Tentativa com senha retorna `Permission denied (publickey)`
+- [ ] Senha antiga, que ficou exposta em conversa, deixou de ter qualquer efeito
+
+## Por que isso importa
+
+Uma senha pode vazar (chat, print, reutilização) e ser tentada em massa por qualquer pessoa na internet. Uma chave privada nunca trafega, então desativar a senha elimina essa classe de ataque. O risco que sobra é o roubo do arquivo da chave privada, e é para isso que serve a passphrase.
